@@ -4,11 +4,9 @@
 
 # Gets the name of the response column given a clm2 object
 getY.clm2 <- function(object){
-  callStr <- paste(object$call) # Convert call to string
-  location <- callStr["location"] # Get location from the call
-  if(is.na(location)) # Sometimes the calls aren't labeled
-    location <- callStr[2] # In that case we hope it's part 2 of the call
-  strsplit(location," ~ ")[[1]][1] # Split by "~", Y should be the first element
+  terms <- attr(object$location, "terms") # Get location terms
+  Y.indx <- attr(terms, "response") # Get response from terms
+  colnames(object$location)[Y.indx]
 }
 
 # Expands each row of df by all the levels of Y
