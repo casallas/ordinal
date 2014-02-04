@@ -29,9 +29,13 @@ expand_levels <- function(df.in, Y){
 # type = c("prob", "probs", "class")
 # "prob" is the type of predictions given by the original predict.clm2 function
 # "probs" and "class" mimic the functionality of predict.polr
-predict.clm2 <- function(object, newdata, type="prob", ...){
-  # Hacky solution, get the response name from the call
+predict.clm2 <- function(object, newdata = NULL, type="prob", ...){
+  if(is.null(newdata)){newdata <- object$location} # Get data from model if not specified
+
+  # Get the response name from the model
   Y <- getY.clm2(object)
+
+  # Get number of response levels
   nlevels <- length(levels(newdata[[Y]]))
   
   # Expand the levels of the data set
