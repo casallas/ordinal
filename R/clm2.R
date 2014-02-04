@@ -894,7 +894,7 @@ anova.clm2 <- function (object, ..., test = c("Chisq", "none"))
   out
 }
 
-predict.clm2 <- function(object, newdata, ...)
+.predict.clm2 <- function(object, newdata, ...)
 {
     if(!inherits(object, "clm2")) stop("not a \"clm2\" object")
     if(missing(newdata)) pr <- object$fitted

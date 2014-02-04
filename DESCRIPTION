@@ -43,6 +43,7 @@ Collate:
     'clm.slice.R'
     'clm.start.R'
     'clm2.R'
+	'clm2.predict.R'
     'clmm.R'
     'clmm.formula.R'
     'clmm.methods.R'
