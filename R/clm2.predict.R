@@ -11,16 +11,14 @@ getY.clm2 <- function(object){
 
 # Expands each row of df by all the levels of Y
 expand_levels <- function(df.in, Y){
-  df.out <- df.in[0,] # Aux df of newdata
+  # Get response levels
   lvls <- levels(df.in[[Y]])
-  # Barbaric method to duplicate rows for each level
-  for(r in 1:nrow(df.in)){
-    for(l in lvls){
-      new_row <- df.in[r,]
-      new_row[Y] <- l
-      df.out <- rbind(df.out,new_row)
-    }
-  }
+  # Make response df out of replicated rows
+  df.out <- df.in[rep(row.names(df.in), length(lvls)),]
+  # Order rows
+  df.out <- df.out[order(as.numeric(row.names(df.out))),]
+  # Replicate levels
+  df.out[[Y]] <- rep(lvls, nrow(df.in))
   # Readjust factors
   df.out[[Y]] <- factor(df.out[[Y]], levels = lvls, ordered = is.ordered(df.in[[Y]]))
   df.out
