@@ -926,6 +926,15 @@ anova.clm2 <- function (object, ..., test = c("Chisq", "none"))
             XX <- model.matrix(Terms, m, contrasts = object$contrasts)
             namC <- colnames(XX)
         }
+        if(!is.null(object$grFac)){
+            ranName <- as.character(object$call$random)
+            Terms <- as.formula(paste("~", ranName))
+            m <- model.frame(Terms, newdata, na.action = function(x) x)#,
+            U <- model.matrix(Terms, m, contrasts = object$contrasts)
+            uint <- match("(Intercept)", colnames(U), nomatch=0)
+            # Rename the (Intercept) column using the appropriate name
+            if(uint > 0) colnames(U)[uint] <- paste0(ranName, unique(object$grFac)[uint])
+        }
         B2 <- 1 * (col(matrix(0, n, nlevels(y))) == unclass(y))
         o1 <- c(100 * B2[, nlevels(y)])
         o2 <- c(-100 * B2[,1])
@@ -938,6 +947,11 @@ anova.clm2 <- function (object, ..., test = c("Chisq", "none"))
           B1 <- do.call(cbind, LL1)
           LL2 <- lapply(1:ncolXX, function(x) B2 * XX[,x])
           B2 <- do.call(cbind, LL2)
+        }
+        if(!is.null(object$grFac)){
+          B1 <- cbind(B1, -U)
+          B2 <- cbind(B2, -U)
+          locationPar <- c(locationPar, object$ranef)
         }
         if(ncol(X) > 0) {
             B1 <- cbind(B1, -X)
