@@ -27,8 +27,18 @@ expand_levels <- function(df.in, Y){
 # type = c("prob", "probs", "class")
 # "prob" is the type of predictions given by the original predict.clm2 function
 # "probs" and "class" mimic the functionality of predict.polr
-predict.clm2 <- function(object, newdata = NULL, type="prob", ...){
-  if(is.null(newdata)){newdata <- object$location} # Get data from model if not specified
+predict.clm2 <- function(object, newdata, type="prob", ...){
+  # The original prediction of the ordinal package
+  if(type == "prob"){
+	  return(.predict.clm2(object, newdata, ...))
+  }
+  # Get data from model if not specified
+  if(missing(newdata)){
+    newdata <- object$location
+    # Append nominal predictors, if any
+    if(!is.null(object$nominal))
+      newdata <- cbind(newdata, object$nominal)
+  }
 
   # Get the response name from the model
   Y <- getY.clm2(object)
@@ -39,11 +49,8 @@ predict.clm2 <- function(object, newdata = NULL, type="prob", ...){
   # Expand the levels of the data set
   newdata <- expand_levels(newdata, Y)
   
-  # The original prediction of the ordinal package
-  p.clm <- .predict.clm2(object, newdata = newdata, ...)
-  if(type == "prob"){
-	  return(p.clm)
-  }
+  # Get the original predictions for the expanded dataset
+  p.clm <- .predict.clm2(object, newdata, ...)
   
   # Now generate the prob matrix as specified in the predict.clm2 documentation
   pmat.clm <- matrix(p.clm, ncol=nlevels, byrow = TRUE)
