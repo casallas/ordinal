@@ -114,7 +114,7 @@ summary.clm <- function(object, correlation = FALSE, ...)
                     c("Estimate", "Std. Error", "z value", "Pr(>|z|)")))
     coefs[, 1] <- object$coefficients
     if(!all(is.finite(vcov))) {
-        warning("Variance-covariance matrix of the parameters is not defined")
+        ## warning("Variance-covariance matrix of the parameters is not defined")
         coefs[, 2:4] <- NA
         if(correlation) warning("Correlation matrix is unavailable")
     }
@@ -122,7 +122,7 @@ summary.clm <- function(object, correlation = FALSE, ...)
         alias <- unlist(object$aliased)
         coefs[!alias, 2] <- sd <- sqrt(diag(vcov))
         ## Cond is Inf if Hessian contains NaNs:
-        object$condHess <-
+        object$cond.H <-
             if(any(is.na(object$Hessian))) Inf
             else with(eigen(object$Hessian, symmetric=TRUE, only.values = TRUE),
                       abs(max(values) / min(values)))
@@ -301,33 +301,36 @@ print.anova.clm <-
   return(invisible(x))
 }
 
-model.matrix.clm <- function(object, type = c("design", "B"), ...)
-### returns a list of model matrices for the X, NOM and S formulas or
-### the B matrices (including S if present) actually used for the
-### fitting
-### Aliased columns are retained in the former but dropped in the
-### latter.
-{
-  type <- match.arg(type)
-  if(type == "design") {
-    mf <- update(object, method="model.frame")
-    keep <- c("X", "NOM", "S")
-    select <- match(keep, names(mf), nomatch=0)
-    return(mf[select])
-  } else {
-    env <- update(object, doFit=FALSE)
-    ans <- list(B1 = env$B1, B2 = env$B2)
-    ans$S <- env$S ## may not exist
+model.matrix.clm <- function(object, type = c("design", "B"), ...) {
+    type <- match.arg(type)
+    mf <- try(model.frame(object), silent=TRUE)
+    if(inherits(mf, "try-error"))
+        stop("Cannot extract model.matrix: refit model with 'model=TRUE'?")
+### NOTE: we want to stop even if type="B" since the fullmf is needed
+### in get_clmRho also and this way the error message is better.
+    if(type == "design") {
+        contr <- c(object$contrasts, object$S.contrasts,
+                   object$nom.contrasts)
+        design <- get_clmDesign(fullmf=object$model,
+                                terms.list=terms(object, "all"),
+                                contrasts=contr)
+        keep <- c("X", "NOM", "S")
+        select <- match(keep, names(design), nomatch=0)
+        ans <- design[select]
+    } else { ## if type == "B":
+        env <- get_clmRho.clm(object)
+        ans <- list(B1 = env$B1, B2 = env$B2)
+        ans$S <- env$S ## may not exist
+    }
     return(ans)
-  }
 }
 
 model.frame.clm <- function(formula, ...) {
 ### returns a model frame with *all* variables used for fitting.
-  if(is.null(mod <- formula$model))
-    update(formula, method="model.frame")$mf
-  else
-    mod
+    if(is.null(mod <- formula$model))
+        stop("Cannot extract model.frame: refit model with 'model=TRUE'")
+    else
+        mod
 }
 
 coef.clm <- function(object, na.rm = FALSE, ...) {
@@ -350,3 +353,17 @@ coef.summary.clm <- function(object, na.rm = FALSE, ...) {
 
 nobs.clm <- function(object, ...) object$nobs
 
+terms.clm <-
+    function(x, type=c("formula", "scale", "nominal", "all"), ...)
+{
+    type <- match.arg(type)
+    term.nm <- c("terms", "S.terms", "nom.terms")
+    Terms <- x[names(x) %in% term.nm]
+    ind <- match(term.nm, names(Terms), 0L)
+    Terms <- Terms[ind]
+    names(Terms) <- c("formula", "scale", "nominal")[ind != 0]
+    if(type == "all") return(Terms)
+    if(!type %in% names(Terms))
+        stop(gettextf("no terms object for '%s'", type))
+    Terms[[type]]
+}

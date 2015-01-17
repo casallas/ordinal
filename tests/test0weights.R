@@ -1,6 +1,12 @@
 library(ordinal)
+options(contrasts = c("contr.treatment", "contr.poly"))
+## library(devtools)
+## r2path <- "/Users/rhbc/Documents/Rpackages/ordinal/pkg/ordinal"
+## clean_dll(pkg = r2path)
+## load_all(r2path)
 
 ## one zero weight:
+data(wine, package="ordinal")
 wts <- rep(1, nrow(wine))
 wine$rating
 wts[1] <- 0
@@ -77,7 +83,7 @@ try(anova(fm1, fm2), silent=TRUE)[1] ## OK
 
 ## Test clm.fit:
 wts2 <- 1 * with(wine, rating != "2")
-mf2 <- update(fm2, method="model.frame")
+mf2 <- update(fm2, method="design")
 fm3 <- with(mf2, clm.fit(y, X, weights=wts))
 
 #################################

@@ -55,13 +55,18 @@ convergence.clm <-
         warning("convergence assessment may be unreliable ",
                 "due to large numerical error")
     ## Compute approximate error in the log-likelihood function:
-    env <- update(object, doFit=FALSE)
+    env <- get_clmRho(object)
+    ## Note: safer to get env this way.
+    ## env <- update(object, doFit=FALSE)
     env$par <- coef(object, na.rm=TRUE) - step
     new.logLik <- -env$clm.nll(env)
     new.max.grad <- max(abs(env$clm.grad(env)))
-    if(new.max.grad > max(abs(g)))
+    if(new.max.grad > max(abs(g)) && max(abs(step)) > tol)
         warning("Convergence assessment may be unreliable: ",
                 "please assess the likelihood with slice()")
+### NOTE: we only warn if step is larger than a tolerance, since if
+### step \sim 1e-16, the max(abs(grad)) may increase though stay
+### essentially zero.
     logLik.err <- object$logLik - new.logLik
     err <- format.pval(logLik.err, digits=2, eps=1e-10)
     if(!length(grep("<", err)))
@@ -132,9 +137,13 @@ signif.digits <- function(value, error) {
 
 conv.check <-
     function(fit, control=NULL, Theta.ok=NULL, tol=sqrt(.Machine$double.eps), ...)
+    ## function(gr, Hess, conv, method, gradTol, relTol,
+    ##          tol=sqrt(.Machine$double.eps), ...)
 ### Compute variance-covariance matrix and check convergence along the
 ### way.
-### fit: clm-object or the result of clm.fit.NR()
+### fit: clm-object or the result of clm.fit.NR() | gradient, Hessian,
+### (control), convergence
+### control: (tol), (method), gradTol, relTol
 ###
 ### Return: list with elements
 ### vcov, conv, cond.H, messages and
@@ -167,15 +176,10 @@ conv.check <-
                "2" = "iteration limit reached",
                "3" = "step factor reduced below minimum",
                "4" = "maximum number of consecutive Newton modifications reached")
+    if(control$method != "Newton") mess <- NULL
+### FIXME: get proper convergence message from optim, nlminb, ucminf etc.
     res <- c(res, alg.message=mess)
     ## }
-    if(max.grad > control$gradTol) {
-        res$code <- -1L
-        res$messages <-
-            gettextf("Model failed to converge with max|grad| = %g (tol = %g)",
-                     max.grad, control$gradTol)
-        return(res)
-    }
     evd <- eigen(H, symmetric=TRUE, only.values=TRUE)$values
     negative <- sum(evd < -tol)
     if(negative) {
@@ -186,6 +190,17 @@ conv.check <-
                      negative)
         return(res)
     }
+    ## Add condition number to res:
+    res$cond.H <- max(evd) / min(evd)
+    ## Compute Newton step:
+    ch <- try(chol(H), silent=TRUE)
+    if(max.grad > control$gradTol) {
+        res$code <- -1L
+        res$messages <-
+            gettextf("Model failed to converge with max|grad| = %g (tol = %g)",
+                     max.grad, control$gradTol)
+        return(res)
+    }
     if(!is.null(Theta.ok) && !Theta.ok) {
         res$code <- -3L
         res$messages <-
@@ -193,19 +208,19 @@ conv.check <-
         return(res)
     }
     zero <- sum(abs(evd) < tol)
-    ch <- try(chol(H), silent=TRUE)
     if(zero || inherits(ch, "try-error")) {
         res$code <- 1L
         res$messages <-
             "Hessian is numerically singular: parameters are not uniquely determined"
         return(res)
     }
-    ## Add condition number to res:
-    res$cond.H <- max(evd) / min(evd)
-    ## Compute Newton step:
+### NOTE: Only do the following if 'ch <- try(chol(H), silent=TRUE)'
+### actually succedded:
     step <- c(backsolve(ch, backsolve(ch, g, transpose=TRUE)))
     ## Compute var-cov:
     res$vcov[] <- chol2inv(ch)
+### NOTE: we want res$vcov to be present in all of the situations
+### below.
     if(max(abs(step)) > control$relTol) {
         res$code <- c(res$code, 1L)
         corDec <- as.integer(min(cor.dec(step)))
