@@ -38,7 +38,7 @@ predict.clm2 <- function(object, newdata, type="prob", ...){
     # Append nominal predictors, if any
     if(!is.null(object$nominal))
       newdata <- cbind(newdata, object$nominal)
-    # Append random effects, if any (not sure if this does anything)
+    # Append random effects, if any
     if(!is.null(object$grFac)){
       newdata <- cbind(newdata, factor(object$grFac))
       colnames(newdata)[ncol(newdata)] <- as.character(object$call$random)
